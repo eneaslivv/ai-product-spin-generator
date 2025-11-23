@@ -5,6 +5,7 @@ import SettingsModal from './components/SettingsModal';
 import UploadView from './components/UploadView';
 import ProcessingView from './components/ProcessingView';
 import ResultView from './components/ResultView';
+import DashboardView from './src/components/DashboardView'; // Ruta corregida
 import Login from './src/pages/Login';
 import { useSession } from './src/components/SessionContextProvider';
 import { supabase } from './src/integrations/supabase/client';
@@ -13,6 +14,7 @@ import { uploadImageToSupabase } from './src/integrations/supabase/storage';
 const App: React.FC = () => {
   const { session, user, isLoading: isSessionLoading } = useSession();
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
+  const [currentView, setCurrentView] = useState<'upload' | 'dashboard' | 'processing' | 'result' | 'error'>('upload'); // Nuevo estado para la vista actual
   const [apiKeys, setApiKeys] = useState<ApiKeys>({
     googleApiKey: '',
     falKey: '',
@@ -125,12 +127,13 @@ const App: React.FC = () => {
       return;
     }
 
-    const newProductId = crypto.randomUUID(); // Generar el ID aquí
+    const newProductId = crypto.randomUUID();
 
     setAppState(AppState.UPLOADING);
+    setCurrentView('processing'); // Cambiar a vista de procesamiento
     setErrorMsg(null);
     setProductData({
-      id: newProductId, // Usar el ID generado
+      id: newProductId,
       name,
       originalImageBlob: frontFile,
       originalBackImageBlob: backFile,
@@ -138,7 +141,7 @@ const App: React.FC = () => {
       enhancedImageUrl: null,
       enhancedBackImageUrl: null,
       videoUrl: null,
-      timestamp: Date.now(),
+      timestamp: 0,
       user_id: user.id,
     });
 
@@ -171,7 +174,7 @@ const App: React.FC = () => {
 
       const { data, error: edgeFunctionError } = await supabase.functions.invoke('generate-spin', {
         body: JSON.stringify({
-          product_id: newProductId, // Pasar el ID de producto generado
+          product_id: newProductId,
           original_image_url: frontImageUrl,
           original_back_image_url: backImageUrl,
           product_name: name,
@@ -199,11 +202,13 @@ const App: React.FC = () => {
       updateStepStatus('save', 'success');
 
       setAppState(AppState.COMPLETE);
+      setCurrentView('result'); // Cambiar a vista de resultados
 
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || "An unexpected error occurred");
       setAppState(AppState.ERROR);
+      setCurrentView('error'); // Cambiar a vista de error
       setProcessingSteps(prev => {
           const loadingStep = prev.find(p => p.status === 'loading');
           if(loadingStep) return prev.map(p => p.id === loadingStep.id ? {...p, status: 'error'} : p);
@@ -214,6 +219,7 @@ const App: React.FC = () => {
 
   const reset = () => {
     setAppState(AppState.IDLE);
+    setCurrentView('upload'); // Volver a la vista de carga
     setProductData({
         id: '',
         name: '',
@@ -227,6 +233,12 @@ const App: React.FC = () => {
         user_id: user?.id || '',
     });
     setErrorMsg(null);
+  };
+
+  const handleViewProductFromDashboard = (product: ProductData) => {
+    setProductData(product);
+    setAppState(AppState.COMPLETE); // Asumimos que el producto ya está completo
+    setCurrentView('result');
   };
 
   useEffect(() => {
@@ -249,21 +261,23 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen pt-28 pb-20 bg-white">
-      <Header onOpenSettings={() => setShowSettings(true)} />
+      <Header 
+        onOpenSettings={() => setShowSettings(true)} 
+        onNavigateToDashboard={() => setCurrentView('dashboard')}
+        onNavigateToCreate={() => setCurrentView('upload')}
+        currentView={currentView}
+      />
       
       <main className="max-w-7xl mx-auto px-6 lg:px-8">
         
-        {appState === AppState.IDLE && (
+        {currentView === 'upload' && (
           <UploadView 
             onStart={handleStart} 
             isConfigured={!!apiKeys.googleApiKey && !!apiKeys.falKey} 
           />
         )}
 
-        {(appState === AppState.UPLOADING || 
-          appState === AppState.ENHANCING || 
-          appState === AppState.GENERATING_SPIN || 
-          appState === AppState.SAVING) && (
+        {currentView === 'processing' && (
           <ProcessingView 
             steps={processingSteps} 
             previewImage={productData.enhancedImageUrl || productData.originalImageUrl}
@@ -271,11 +285,18 @@ const App: React.FC = () => {
           />
         )}
 
-        {appState === AppState.COMPLETE && (
+        {currentView === 'result' && (
           <ResultView data={productData} onReset={reset} />
         )}
 
-        {appState === AppState.ERROR && (
+        {currentView === 'dashboard' && (
+          <DashboardView 
+            onViewProduct={handleViewProductFromDashboard} 
+            onNavigateToCreate={() => setCurrentView('upload')}
+          />
+        )}
+
+        {currentView === 'error' && (
            <div className="max-w-md mx-auto text-center space-y-6 animate-fade-in pt-10">
               <div className="bg-red-50 text-red-900 p-8 rounded-2xl border border-red-100 shadow-sm">
                   <h3 className="text-sm font-bold uppercase tracking-wide mb-2">System Error</h3>
