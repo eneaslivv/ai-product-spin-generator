@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.84.0";
 import { GoogleGenAI } from "https://esm.sh/@google/genai";
 import fal from "https://esm.sh/@fal-ai/serverless-client";
-import { encodeBase64 as base64encode, decodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts"; // Importar encodeBase64 y decodeBase64
+import { encodeBase64 as base64encode, decodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,24 +19,54 @@ serve(async (req) => {
   }
 
   try {
+    // Extract JWT from Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Unauthorized: No Authorization header' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      });
+    }
+    const token = authHeader.replace('Bearer ', '');
+
+    // Create a Supabase client for authentication (using anon key)
+    const supabaseAuthClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    );
+
+    // Verify JWT and get the authenticated user
+    const { data: { user }, error: userError } = await supabaseAuthClient.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error("JWT verification failed:", userError?.message);
+      return new Response(JSON.stringify({ error: 'Unauthorized: Invalid or expired token' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      });
+    }
+
+    const authenticatedUserId = user.id; // Use the user ID from the verified JWT
+
     const { 
       product_id, 
       original_image_url, 
       original_back_image_url, 
       product_name, 
-      user_id,
+      // user_id is no longer taken from req.json()
     } = await req.json();
     
+    // Create a Supabase client for service role operations (to bypass RLS for fetching API keys)
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '' // Use service role key for secure access
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Fetch API keys securely from the database
+    // Fetch API keys securely from the database for the authenticated user
     const { data: userApiKeys, error: fetchKeysError } = await supabase
       .from('user_api_keys')
       .select('google_api_key, fal_key')
-      .eq('user_id', user_id)
+      .eq('user_id', authenticatedUserId) // Use authenticatedUserId
       .single();
 
     if (fetchKeysError) {
@@ -59,13 +89,11 @@ serve(async (req) => {
       const arrayBuffer = await imgBlob.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
 
-      // Usar base64encode de Deno para codificar directamente el Uint8Array
       const base64Image = base64encode(uint8Array);
       return { base64: base64Image, mimeType: imgBlob.type };
     };
 
     const uploadBase64ToSupabase = async (base64Data: string, mimeType: string, userId: string, productId: string, type: string) => {
-      // Usar decodeBase64 de Deno para decodificar a Uint8Array
       const buffer = decodeBase64(base64Data);
       const fileName = `${userId}/enhanced/${productId}-${type}-${Date.now()}.png`;
 
@@ -102,7 +130,7 @@ serve(async (req) => {
     const enhancedFrontPart = genAiResponseFront.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
     if (!enhancedFrontPart) throw new Error("Front image enhancement failed: No inlineData found.");
     const enhancedFrontBase64 = enhancedFrontPart.inlineData.data;
-    const enhancedFrontImageUrl = await uploadBase64ToSupabase(enhancedFrontBase64, 'image/png', user_id, product_id, 'front');
+    const enhancedFrontImageUrl = await uploadBase64ToSupabase(enhancedFrontBase64, 'image/png', authenticatedUserId, product_id, 'front'); // Use authenticatedUserId
 
     let enhancedBackImageUrl: string | null = null;
     if (original_back_image_url) {
@@ -114,7 +142,7 @@ serve(async (req) => {
       const enhancedBackPart = genAiResponseBack.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
       if (!enhancedBackPart) throw new Error("Back image enhancement failed: No inlineData found.");
       const enhancedBackBase64 = enhancedBackPart.inlineData.data;
-      enhancedBackImageUrl = await uploadBase64ToSupabase(enhancedBackBase64, 'image/png', user_id, product_id, 'back');
+      enhancedBackImageUrl = await uploadBase64ToSupabase(enhancedBackBase64, 'image/png', authenticatedUserId, product_id, 'back'); // Use authenticatedUserId
     }
 
     const falResult = await fal.subscribe("fal-ai/kling-video/v2.5-turbo/pro/image-to-video", {
@@ -141,7 +169,7 @@ serve(async (req) => {
       .from('products')
       .upsert({
           id: product_id,
-          user_id: user_id, 
+          user_id: authenticatedUserId, // Use authenticatedUserId
           name: product_name,
           originalimageurl: original_image_url,
           enhancedimageurl: enhancedFrontImageUrl,

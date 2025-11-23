@@ -174,8 +174,7 @@ const App: React.FC = () => {
           original_image_url: frontImageUrl,
           original_back_image_url: backImageUrl,
           product_name: name,
-          user_id: user.id,
-          // Google AI and FAL.ai keys are now fetched securely within the Edge Function
+          // user_id is no longer passed in the body, it's derived from the JWT in the Edge Function
         }),
       });
 
