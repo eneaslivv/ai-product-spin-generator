@@ -2,7 +2,8 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.84.0";
 import { GoogleGenAI } from "https://esm.sh/@google/genai";
-import fal from "https://esm.sh/@fal-ai/serverless-client"; // Cambiado a importación por defecto
+import fal from "https://esm.sh/@fal-ai/serverless-client";
+import { encode as base64encode, decode as base64decode } from "https://deno.land/std@0.224.0/encoding/base64.ts"; // Importar el módulo de Base64 de Deno
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -43,15 +44,14 @@ serve(async (req) => {
       const arrayBuffer = await imgBlob.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
 
-      // Usar TextDecoder con 'iso-8859-1' para convertir Uint8Array a una cadena binaria
-      // que btoa puede codificar de forma segura sin exceder los límites de la pila de llamadas.
-      const binaryString = new TextDecoder('iso-8859-1').decode(uint8Array);
-      const base64Image = btoa(binaryString);
+      // Usar base64encode de Deno para codificar directamente el Uint8Array
+      const base64Image = base64encode(uint8Array);
       return { base64: base64Image, mimeType: imgBlob.type };
     };
 
     const uploadBase64ToSupabase = async (base64Data: string, mimeType: string, userId: string, productId: string, type: string) => {
-      const buffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      // Usar base64decode de Deno para decodificar a Uint8Array
+      const buffer = base64decode(base64Data);
       const fileName = `${userId}/enhanced/${productId}-${type}-${Date.now()}.png`;
 
       const { data, error } = await supabase.storage
