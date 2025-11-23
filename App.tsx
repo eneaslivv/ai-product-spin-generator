@@ -183,7 +183,8 @@ const App: React.FC = () => {
       setAppState(AppState.GENERATING_SPIN);
       updateStepStatus('spin', 'loading');
 
-      const videoUrl = await generate360Spin(apiKeys.falKey, enhancedFront, enhancedBack);
+      // Pasar el nombre del producto a generate360Spin
+      const videoUrl = await generate360Spin(apiKeys.falKey, enhancedFront, name); 
       
       setProductData(prev => ({ ...prev, videoUrl }));
       updateStepStatus('spin', 'success');

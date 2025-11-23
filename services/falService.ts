@@ -1,79 +1,44 @@
+import { fal } from "@fal-ai/serverless-client";
 
 export const generate360Spin = async (
   apiKey: string,
   imageUrl: string,
-  backImageUrl?: string | null
+  productName: string // Añadido productName para el prompt
 ): Promise<string> => {
   if (!apiKey) throw new Error("FAL.ai Key is required");
 
-  // In a real production app, this call should happen via a proxy or Edge Function
-  // to avoid exposing the Secret Key. For this Generator Tool, we use it directly.
-  
+  // Configurar la clave de API para fal-client
+  fal.config({
+    credentials: apiKey,
+  });
+
   try {
-    const payload: any = {
-      image_url: imageUrl,
-      spin_degrees: 360,
-      duration: 3.0, // 3 seconds for a smooth spin
-      quality: "high"
-    };
+    console.log("Iniciando generación de video con Kling v2.5...");
 
-    // If back image is provided, pass it to the model 
-    // (Note: Depends on specific model capability, standard spin models may ignore this, 
-    // but we support the data flow for advanced models)
-    if (backImageUrl) {
-        payload.back_image_url = backImageUrl;
-    }
-
-    const response = await fetch("https://queue.fal.run/fal-ai/3d-photo-spin", {
-      method: "POST",
-      headers: {
-        "Authorization": `Key ${apiKey}`,
-        "Content-Type": "application/json",
+    const result = await fal.subscribe("fal-ai/kling-video/v2.5-turbo/pro/image-to-video", {
+      input: {
+        image_url: imageUrl,
+        prompt: `A professional 360-degree orbiting camera shot of ${productName}, smooth turntable rotation, studio lighting, solid background, high resolution, 4k, cinematic focus, keeping the object shape consistent without deformation.`,
+        duration: "5",       // 5 segundos para una vuelta suave
+        aspect_ratio: "1:1"  // Mantener 1:1 para la vista previa cuadrada de la app
       },
-      body: JSON.stringify(payload),
+      logs: true, // Para ver el progreso en la consola
+      onQueueUpdate: (update) => {
+        if (update.status === "IN_PROGRESS") {
+          console.log(`Progreso FAL.ai: ${update.logs.map(log => log.message).join(' ')}`);
+        }
+      },
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || "FAL.ai request failed");
+    if (!result || !result.video || !result.video.url) {
+      throw new Error("FAL.ai did not return a video URL.");
     }
 
-    const initialData = await response.json();
-    const requestId = initialData.request_id;
-    
-    // Poll for result
-    const resultUrl = `https://queue.fal.run/fal-ai/3d-photo-spin/requests/${requestId}`;
-    
-    let attempts = 0;
-    while (attempts < 30) { // Timeout after ~60s
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s
-      
-      const checkResponse = await fetch(resultUrl, {
-         headers: { "Authorization": `Key ${apiKey}` }
-      });
-      
-      const statusData = await checkResponse.json();
-      
-      if (statusData.status === "COMPLETED") {
-        if (statusData.video && statusData.video.url) {
-            return statusData.video.url;
-        }
-        // Fallback or error in structure
-        console.error("FAL Response:", statusData);
-        throw new Error("Video URL missing in completed response");
-      }
-      
-      if (statusData.status === "FAILED") {
-        throw new Error(statusData.error || "Generation failed on FAL.ai");
-      }
-      
-      attempts++;
-    }
-    
-    throw new Error("Generation timed out");
+    console.log("Video generado:", result.video.url);
+    return result.video.url;
 
   } catch (error: any) {
     console.error("FAL Service Error:", error);
-    throw error;
+    throw new Error(error.message || "Failed to generate 360 spin with FAL.ai");
   }
 };
