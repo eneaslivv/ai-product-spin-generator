@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.84.0";
 import { GoogleGenAI } from "https://esm.sh/@google/genai";
 import fal from "https://esm.sh/@fal-ai/serverless-client";
-import { encode as base64encode, decodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts"; // Importar decodeBase64
+import { encodeBase64 as base64encode, decodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts"; // Importar encodeBase64 y decodeBase64
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
