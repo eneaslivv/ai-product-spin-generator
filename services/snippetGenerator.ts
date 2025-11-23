@@ -51,3 +51,21 @@ export const generateTiendaNubeSnippet = (videoUrl: string) => {
 <!-- Key: spin_video_url -->
 <!-- Value: ${videoUrl} -->`;
 };
+
+export const generateGenericEmbedSnippet = (videoUrl: string, productId: string) => {
+  return `<!-- Generic 360 Spin Embed -->
+<div style="width: 100%; max-width: 600px; margin: 0 auto;">
+  <video
+    controls
+    autoplay
+    muted
+    loop
+    playsinline
+    src="${videoUrl}"
+    id="generic-spin-video-${productId}"
+    style="width: 100%; border-radius: 12px; display: block;"
+  >
+    Your browser does not support the video tag.
+  </video>
+</div>`;
+};

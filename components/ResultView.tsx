@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ProductData } from '../types';
-import { generateShopifySnippet, generateTiendaNubeSnippet } from '../services/snippetGenerator';
+import { generateShopifySnippet, generateTiendaNubeSnippet, generateGenericEmbedSnippet } from '../services/snippetGenerator';
 import { CopyIcon, CheckIcon } from './Icons';
 
 interface ResultViewProps {
@@ -9,7 +9,7 @@ interface ResultViewProps {
 }
 
 const ResultView: React.FC<ResultViewProps> = ({ data, onReset }) => {
-  const [activeTab, setActiveTab] = useState<'shopify' | 'nube'>('shopify');
+  const [activeTab, setActiveTab] = useState<'shopify' | 'nube' | 'generic'>('shopify');
   const [copied, setCopied] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -43,11 +43,38 @@ const ResultView: React.FC<ResultViewProps> = ({ data, onReset }) => {
 
   const shopifySnippet = generateShopifySnippet(data.videoUrl, data.id);
   const nubeSnippet = generateTiendaNubeSnippet(data.videoUrl);
+  const genericSnippet = generateGenericEmbedSnippet(data.videoUrl, data.id);
 
   const handleCopy = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
     setCopied(type);
     setTimeout(() => setCopied(null), 2000);
+  };
+
+  const getSnippetToCopy = () => {
+    switch (activeTab) {
+      case 'shopify':
+        return shopifySnippet;
+      case 'nube':
+        return nubeSnippet;
+      case 'generic':
+        return genericSnippet;
+      default:
+        return '';
+    }
+  };
+
+  const getInstallationGuide = () => {
+    switch (activeTab) {
+      case 'shopify':
+        return "Navigate to your Online Store > Themes > Edit Code. Paste this snippet into a Custom HTML section or directly into your product template.";
+      case 'nube':
+        return "First, add the video URL to your product metafields (Key: spin_video_url). Then, paste the HTML code into your product description or template.";
+      case 'generic':
+        return "Paste this HTML snippet directly into the HTML editor of any webpage or content management system where you want the video to appear.";
+      default:
+        return '';
+    }
   };
 
   return (
@@ -124,12 +151,21 @@ const ResultView: React.FC<ResultViewProps> = ({ data, onReset }) => {
               Tienda Nube
               {activeTab === 'nube' && <span className="absolute bottom-0 left-0 w-full h-[1.5px] bg-black"></span>}
             </button>
+            <button
+              onClick={() => setActiveTab('generic')}
+              className={`pb-3 text-sm font-medium transition-all relative ${
+                activeTab === 'generic' ? 'text-black' : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              Generic Embed
+              {activeTab === 'generic' && <span className="absolute bottom-0 left-0 w-full h-[1.5px] bg-black"></span>}
+            </button>
           </div>
 
           <div className="flex-1 bg-gray-50/50 rounded-xl border border-gray-200/60 overflow-hidden flex flex-col relative group hover:border-gray-300 transition-colors">
             <div className="absolute top-3 right-3 z-10">
               <button
-                onClick={() => handleCopy(activeTab === 'shopify' ? shopifySnippet : nubeSnippet, activeTab)}
+                onClick={() => handleCopy(getSnippetToCopy(), activeTab)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg shadow-sm text-xs font-semibold border transition-all ${
                     copied === activeTab 
                     ? 'bg-green-50 text-green-700 border-green-200' 
@@ -143,7 +179,7 @@ const ResultView: React.FC<ResultViewProps> = ({ data, onReset }) => {
             
             <div className="overflow-y-auto max-h-[350px] p-6">
                 <code className="text-xs font-mono text-gray-600 leading-relaxed block whitespace-pre-wrap">
-                {activeTab === 'shopify' ? shopifySnippet : nubeSnippet}
+                {getSnippetToCopy()}
                 </code>
             </div>
           </div>
@@ -151,9 +187,7 @@ const ResultView: React.FC<ResultViewProps> = ({ data, onReset }) => {
           <div className="mt-6 p-5 bg-blue-50/30 rounded-xl border border-blue-100">
              <h4 className="text-xs font-bold text-blue-900 mb-2 uppercase tracking-wide">Installation Guide</h4>
              <p className="text-sm text-blue-800/80 leading-relaxed font-light">
-               {activeTab === 'shopify' 
-                 ? "Navigate to your Online Store > Themes > Edit Code. Paste this snippet into a Custom HTML section or directly into your product template." 
-                 : "First, add the video URL to your product metafields (Key: spin_video_url). Then, paste the HTML code into your product description or template."}
+               {getInstallationGuide()}
              </p>
           </div>
         </div>
