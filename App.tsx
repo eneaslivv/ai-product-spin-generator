@@ -8,7 +8,7 @@ import ResultView from './components/ResultView';
 import Login from './src/pages/Login';
 import { useSession } from './src/components/SessionContextProvider';
 import { supabase } from './src/integrations/supabase/client';
-import { uploadImageToSupabase } from './src/integrations/supabase/storage'; // Nueva importación
+import { uploadImageToSupabase } from './src/integrations/supabase/storage';
 
 const App: React.FC = () => {
   const { session, user, isLoading: isSessionLoading } = useSession();
@@ -25,7 +25,7 @@ const App: React.FC = () => {
     name: '',
     originalImageBlob: null,
     originalBackImageBlob: null,
-    originalImageUrl: null, // Se establecerá después de la subida
+    originalImageUrl: null,
     enhancedImageUrl: null,
     enhancedBackImageUrl: null,
     videoUrl: null,
@@ -36,10 +36,10 @@ const App: React.FC = () => {
   const [isApiKeysLoading, setIsApiKeysLoading] = useState(true);
 
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([
-    { id: 'upload', label: 'Uploading Images', status: 'pending' }, // Nuevo paso
+    { id: 'upload', label: 'Uploading Images', status: 'pending' },
     { id: 'enhance', label: 'AI Image Enhancement', status: 'pending' },
     { id: 'spin', label: '360° Geometry Generation', status: 'pending' },
-    { id: 'save', label: 'Saving Product Data', status: 'pending' }, // Etiqueta cambiada
+    { id: 'save', label: 'Saving Product Data', status: 'pending' },
   ]);
 
   const updateStepStatus = (id: string, status: ProcessingStep['status']) => {
@@ -125,14 +125,16 @@ const App: React.FC = () => {
       return;
     }
 
+    const newProductId = crypto.randomUUID(); // Generar el ID aquí
+
     setAppState(AppState.UPLOADING);
     setErrorMsg(null);
     setProductData({
-      id: crypto.randomUUID(),
+      id: newProductId, // Usar el ID generado
       name,
       originalImageBlob: frontFile,
       originalBackImageBlob: backFile,
-      originalImageUrl: null, // Se establecerá después de la subida
+      originalImageUrl: null,
       enhancedImageUrl: null,
       enhancedBackImageUrl: null,
       videoUrl: null,
@@ -142,7 +144,7 @@ const App: React.FC = () => {
 
     // Reset steps
     setProcessingSteps([
-        { id: 'upload', label: 'Uploading Images', status: 'loading' }, // Iniciar paso de subida
+        { id: 'upload', label: 'Uploading Images', status: 'loading' },
         { id: 'enhance', label: 'AI Image Enhancement', status: 'pending' },
         { id: 'spin', label: '360° Geometry Generation', status: 'pending' },
         { id: 'save', label: 'Saving Product Data', status: 'pending' },
@@ -164,17 +166,17 @@ const App: React.FC = () => {
       updateStepStatus('upload', 'success');
 
       // 2. Invocar la Supabase Edge Function para mejora y generación de giro
-      setAppState(AppState.ENHANCING); // La función Edge manejará primero la mejora
+      setAppState(AppState.ENHANCING);
       updateStepStatus('enhance', 'loading');
 
       const { data, error: edgeFunctionError } = await supabase.functions.invoke('generate-spin', {
         body: JSON.stringify({
-          product_id: productData.id, // Pasar el ID de producto generado
+          product_id: newProductId, // Pasar el ID de producto generado
           original_image_url: frontImageUrl,
-          original_back_image_url: backImageUrl, // Pasar la URL de la imagen trasera si existe
+          original_back_image_url: backImageUrl,
           product_name: name,
           user_id: user.id,
-          google_api_key: apiKeys.googleApiKey, // Pasar claves a la Edge Function
+          google_api_key: apiKeys.googleApiKey,
           fal_key: apiKeys.falKey,
         }),
       });
@@ -186,16 +188,15 @@ const App: React.FC = () => {
         throw new Error(`Edge Function returned an error: ${data?.error || 'Unknown error'}`);
       }
 
-      // Asumiendo que la Edge Function devuelve los datos de producto actualizados
       setProductData(prev => ({ 
           ...prev, 
           enhancedImageUrl: data.enhancedimageurl,
-          enhancedBackImageUrl: data.enhancedbackimageurl, // Si la imagen trasera también se mejora
+          enhancedBackImageUrl: data.enhancedbackimageurl,
           videoUrl: data.videourl,
       }));
-      updateStepStatus('enhance', 'success'); // Mejora realizada por la Edge Function
-      updateStepStatus('spin', 'success'); // Generación de giro realizada por la Edge Function
-      updateStepStatus('save', 'success'); // Guardado realizado por la Edge Function
+      updateStepStatus('enhance', 'success');
+      updateStepStatus('spin', 'success');
+      updateStepStatus('save', 'success');
 
       setAppState(AppState.COMPLETE);
 
