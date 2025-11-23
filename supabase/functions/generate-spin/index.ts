@@ -25,17 +25,32 @@ serve(async (req) => {
       original_back_image_url, 
       product_name, 
       user_id,
-      google_api_key,
-      fal_key,
     } = await req.json();
     
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '' // Use service role key for secure access
     );
 
-    const googleAi = new GoogleGenAI({ apiKey: google_api_key });
-    fal.config({ credentials: fal_key });
+    // Fetch API keys securely from the database
+    const { data: userApiKeys, error: fetchKeysError } = await supabase
+      .from('user_api_keys')
+      .select('google_api_key, fal_key')
+      .eq('user_id', user_id)
+      .single();
+
+    if (fetchKeysError) {
+      throw new Error(`Failed to fetch user API keys: ${fetchKeysError.message}`);
+    }
+    if (!userApiKeys || !userApiKeys.google_api_key || !userApiKeys.fal_key) {
+      throw new Error("Google AI or FAL.ai API keys are not configured for this user.");
+    }
+
+    const googleApiKey = userApiKeys.google_api_key;
+    const falKey = userApiKeys.fal_key;
+
+    const googleAi = new GoogleGenAI({ apiKey: googleApiKey });
+    fal.config({ credentials: falKey });
 
     const imageUrlToBase64 = async (url: string) => {
       const imgRes = await fetch(url);

@@ -11,12 +11,8 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
-        // Las variables de entorno de Vite ya se exponen con import.meta.env
-        // No es necesario redefinir GEMINI_API_KEY aquí si ya se usa VITE_GOOGLE_API_KEY
         'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
         'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
-        'import.meta.env.VITE_GOOGLE_API_KEY': JSON.stringify(env.VITE_GOOGLE_API_KEY), // Exponer al frontend
-        'import.meta.env.VITE_FAL_KEY': JSON.stringify(env.VITE_FAL_KEY) // Exponer al frontend
       },
       resolve: {
         alias: {

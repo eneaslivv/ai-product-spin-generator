@@ -54,13 +54,12 @@ const App: React.FC = () => {
     const fetchApiKeys = async () => {
       setIsApiKeysLoading(true);
 
-      const defaultGoogleApiKey = import.meta.env.VITE_GOOGLE_API_KEY || '';
-      const defaultFalKey = import.meta.env.VITE_FAL_KEY || '';
+      // Default values for Supabase keys from environment variables (still needed client-side)
       const defaultSupabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
       const defaultSupabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-      let currentGoogleApiKey = defaultGoogleApiKey;
-      let currentFalKey = defaultFalKey;
+      let currentGoogleApiKey = ''; // No longer from VITE_ env
+      let currentFalKey = '';       // No longer from VITE_ env
       let currentSupabaseUrl = defaultSupabaseUrl;
       let currentSupabaseAnonKey = defaultSupabaseAnonKey;
 
@@ -71,12 +70,12 @@ const App: React.FC = () => {
           .eq('user_id', user.id)
           .single();
 
-        if (error && error.code !== 'PGRST116') {
+        if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
           console.error('Error fetching API keys:', error);
           setErrorMsg('Failed to load API keys.');
         } else if (data) {
-          currentGoogleApiKey = data.google_api_key || defaultGoogleApiKey;
-          currentFalKey = data.fal_key || defaultFalKey;
+          currentGoogleApiKey = data.google_api_key || '';
+          currentFalKey = data.fal_key || '';
           currentSupabaseUrl = data.supabase_url || defaultSupabaseUrl;
           currentSupabaseAnonKey = data.supabase_anon_key || defaultSupabaseAnonKey;
         }
@@ -176,8 +175,7 @@ const App: React.FC = () => {
           original_back_image_url: backImageUrl,
           product_name: name,
           user_id: user.id,
-          google_api_key: apiKeys.googleApiKey,
-          fal_key: apiKeys.falKey,
+          // Google AI and FAL.ai keys are now fetched securely within the Edge Function
         }),
       });
 
