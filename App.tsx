@@ -52,52 +52,48 @@ const App: React.FC = () => {
   // Fetch API keys from Supabase when user session changes
   useEffect(() => {
     const fetchApiKeys = async () => {
+      setIsApiKeysLoading(true);
+
+      // Siempre obtener las claves predeterminadas de las variables de entorno primero
+      const defaultGoogleApiKey = import.meta.env.VITE_GOOGLE_API_KEY || '';
+      const defaultFalKey = import.meta.env.VITE_FAL_KEY || '';
+      const defaultSupabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+      const defaultSupabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+      let currentGoogleApiKey = defaultGoogleApiKey;
+      let currentFalKey = defaultFalKey;
+      let currentSupabaseUrl = defaultSupabaseUrl;
+      let currentSupabaseAnonKey = defaultSupabaseAnonKey;
+
       if (user) {
-        setIsApiKeysLoading(true);
         const { data, error } = await supabase
           .from('user_api_keys')
           .select('*')
           .eq('user_id', user.id)
           .single();
 
-        if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+        if (error && error.code !== 'PGRST116') { // PGRST116 significa que no se encontraron filas
           console.error('Error fetching API keys:', error);
           setErrorMsg('Failed to load API keys.');
-          // Fallback to environment variables even on error
-          setApiKeys({
-            googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY || '',
-            falKey: import.meta.env.VITE_FAL_KEY || '',
-            supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
-            supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || ''
-          });
+          // Si hay un error, seguimos usando los valores predeterminados (que ya están configurados)
         } else if (data) {
-          // Use user-specific keys if found
-          setApiKeys({
-            googleApiKey: data.google_api_key || '',
-            falKey: data.fal_key || '',
-            supabaseUrl: data.supabase_url || '',
-            supabaseAnonKey: data.supabase_anon_key || ''
-          });
-        } else {
-          // No user-specific keys found, use environment variables as defaults
-          setApiKeys({
-            googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY || '',
-            falKey: import.meta.env.VITE_FAL_KEY || '',
-            supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
-            supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || ''
-          });
+          // Si existen datos específicos del usuario, úsalos, pero vuelve a los valores predeterminados si la clave guardada por el usuario está vacía
+          currentGoogleApiKey = data.google_api_key || defaultGoogleApiKey;
+          currentFalKey = data.fal_key || defaultFalKey;
+          currentSupabaseUrl = data.supabase_url || defaultSupabaseUrl;
+          currentSupabaseAnonKey = data.supabase_anon_key || defaultSupabaseAnonKey;
         }
-        setIsApiKeysLoading(false);
-      } else {
-        // No user logged in, use environment variables as defaults
-        setApiKeys({
-          googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY || '',
-          falKey: import.meta.env.VITE_FAL_KEY || '',
-          supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
-          supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || ''
-        });
-        setIsApiKeysLoading(false);
+        // Si los datos son nulos (PGRST116), nos quedamos con los valores predeterminados (que ya están configurados)
       }
+      // Si no hay usuario, nos quedamos con los valores predeterminados (que ya están configurados)
+
+      setApiKeys({
+        googleApiKey: currentGoogleApiKey,
+        falKey: currentFalKey,
+        supabaseUrl: currentSupabaseUrl,
+        supabaseAnonKey: currentSupabaseAnonKey
+      });
+      setIsApiKeysLoading(false);
     };
 
     if (!isSessionLoading) {
@@ -247,8 +243,8 @@ const App: React.FC = () => {
 
   // Open settings immediately if no keys and not loading
   useEffect(() => {
-      // Only show settings if user is logged in AND either Google AI or FAL key is missing
-      // This check now considers both user-specific and default keys
+      // Solo mostrar la configuración si el usuario está logueado Y si las claves de Google AI o FAL.ai están vacías
+      // Esta verificación ahora considera tanto las claves específicas del usuario como las predeterminadas
       if (!isSessionLoading && !isApiKeysLoading && user && (!apiKeys.googleApiKey || !apiKeys.falKey)) {
           setShowSettings(true);
       }
