@@ -1,4 +1,4 @@
-import fal from "@fal-ai/serverless-client"; // Importación por defecto para Node.js
+import fal from "@fal-ai/serverless-client"; // Corregido a importación por defecto
 import { FalResponse } from "../types"; // Importar la interfaz FalResponse
 
 export const generate360Spin = async (
