@@ -41,7 +41,12 @@ serve(async (req) => {
       if (!imgRes.ok) throw new Error(`Failed to fetch image from ${url}: ${imgRes.statusText}`);
       const imgBlob = await imgRes.blob();
       const arrayBuffer = await imgBlob.arrayBuffer();
-      const base64Image = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      const uint8Array = new Uint8Array(arrayBuffer);
+
+      // Usar TextDecoder con 'iso-8859-1' para convertir Uint8Array a una cadena binaria
+      // que btoa puede codificar de forma segura sin exceder los límites de la pila de llamadas.
+      const binaryString = new TextDecoder('iso-8859-1').decode(uint8Array);
+      const base64Image = btoa(binaryString);
       return { base64: base64Image, mimeType: imgBlob.type };
     };
 
