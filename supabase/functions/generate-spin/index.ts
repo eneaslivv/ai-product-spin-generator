@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.84.0";
 import { GoogleGenAI } from "https://esm.sh/@google/genai";
 import fal from "https://esm.sh/@fal-ai/serverless-client";
-import { encode as base64encode, decode as base64decode } from "https://deno.land/std@0.224.0/encoding/base64.ts"; // Importar el módulo de Base64 de Deno
+import { encode as base64encode, decodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts"; // Importar decodeBase64
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -50,8 +50,8 @@ serve(async (req) => {
     };
 
     const uploadBase64ToSupabase = async (base64Data: string, mimeType: string, userId: string, productId: string, type: string) => {
-      // Usar base64decode de Deno para decodificar a Uint8Array
-      const buffer = base64decode(base64Data);
+      // Usar decodeBase64 de Deno para decodificar a Uint8Array
+      const buffer = decodeBase64(base64Data);
       const fileName = `${userId}/enhanced/${productId}-${type}-${Date.now()}.png`;
 
       const { data, error } = await supabase.storage
