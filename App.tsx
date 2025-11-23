@@ -5,7 +5,7 @@ import SettingsModal from './components/SettingsModal';
 import UploadView from './components/UploadView';
 import ProcessingView from './components/ProcessingView';
 import ResultView from './components/ResultView';
-import DashboardView from './src/components/DashboardView'; // Ruta corregida
+import DashboardView from './src/components/DashboardView';
 import Login from './src/pages/Login';
 import { useSession } from './src/components/SessionContextProvider';
 import { supabase } from './src/integrations/supabase/client';
@@ -14,7 +14,7 @@ import { uploadImageToSupabase } from './src/integrations/supabase/storage';
 const App: React.FC = () => {
   const { session, user, isLoading: isSessionLoading } = useSession();
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
-  const [currentView, setCurrentView] = useState<'upload' | 'dashboard' | 'processing' | 'result' | 'error'>('upload'); // Nuevo estado para la vista actual
+  const [currentView, setCurrentView] = useState<'upload' | 'dashboard' | 'processing' | 'result' | 'error'>('upload');
   const [apiKeys, setApiKeys] = useState<ApiKeys>({
     googleApiKey: '',
     falKey: '',
@@ -130,7 +130,7 @@ const App: React.FC = () => {
     const newProductId = crypto.randomUUID();
 
     setAppState(AppState.UPLOADING);
-    setCurrentView('processing'); // Cambiar a vista de procesamiento
+    setCurrentView('processing');
     setErrorMsg(null);
     setProductData({
       id: newProductId,
@@ -145,7 +145,6 @@ const App: React.FC = () => {
       user_id: user.id,
     });
 
-    // Reset steps
     setProcessingSteps([
         { id: 'upload', label: 'Uploading Images', status: 'loading' },
         { id: 'enhance', label: 'AI Image Enhancement', status: 'pending' },
@@ -154,7 +153,6 @@ const App: React.FC = () => {
     ]);
 
     try {
-      // 1. Subir imágenes originales a Supabase Storage
       const frontImageUrl = await uploadImageToSupabase(frontFile, user.id, 'original');
       let backImageUrl: string | null = null;
       if (backFile) {
@@ -168,7 +166,6 @@ const App: React.FC = () => {
       }));
       updateStepStatus('upload', 'success');
 
-      // 2. Invocar la Supabase Edge Function para mejora y generación de giro
       setAppState(AppState.ENHANCING);
       updateStepStatus('enhance', 'loading');
 
@@ -202,13 +199,13 @@ const App: React.FC = () => {
       updateStepStatus('save', 'success');
 
       setAppState(AppState.COMPLETE);
-      setCurrentView('result'); // Cambiar a vista de resultados
+      setCurrentView('result');
 
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || "An unexpected error occurred");
       setAppState(AppState.ERROR);
-      setCurrentView('error'); // Cambiar a vista de error
+      setCurrentView('error');
       setProcessingSteps(prev => {
           const loadingStep = prev.find(p => p.status === 'loading');
           if(loadingStep) return prev.map(p => p.id === loadingStep.id ? {...p, status: 'error'} : p);
@@ -219,7 +216,7 @@ const App: React.FC = () => {
 
   const reset = () => {
     setAppState(AppState.IDLE);
-    setCurrentView('upload'); // Volver a la vista de carga
+    setCurrentView('upload');
     setProductData({
         id: '',
         name: '',
@@ -236,8 +233,9 @@ const App: React.FC = () => {
   };
 
   const handleViewProductFromDashboard = (product: ProductData) => {
+    console.log("Product clicked from dashboard:", product); // Línea añadida para depuración
     setProductData(product);
-    setAppState(AppState.COMPLETE); // Asumimos que el producto ya está completo
+    setAppState(AppState.COMPLETE);
     setCurrentView('result');
   };
 
