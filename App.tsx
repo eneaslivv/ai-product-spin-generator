@@ -63,17 +63,39 @@ const App: React.FC = () => {
         if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
           console.error('Error fetching API keys:', error);
           setErrorMsg('Failed to load API keys.');
+          // Fallback to environment variables even on error
+          setApiKeys({
+            googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY || '',
+            falKey: import.meta.env.VITE_FAL_KEY || '',
+            supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
+            supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+          });
         } else if (data) {
+          // Use user-specific keys if found
           setApiKeys({
             googleApiKey: data.google_api_key || '',
             falKey: data.fal_key || '',
             supabaseUrl: data.supabase_url || '',
             supabaseAnonKey: data.supabase_anon_key || ''
           });
+        } else {
+          // No user-specific keys found, use environment variables as defaults
+          setApiKeys({
+            googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY || '',
+            falKey: import.meta.env.VITE_FAL_KEY || '',
+            supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
+            supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+          });
         }
         setIsApiKeysLoading(false);
       } else {
-        setApiKeys({ googleApiKey: '', falKey: '', supabaseUrl: '', supabaseAnonKey: '' });
+        // No user logged in, use environment variables as defaults
+        setApiKeys({
+          googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY || '',
+          falKey: import.meta.env.VITE_FAL_KEY || '',
+          supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
+          supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+        });
         setIsApiKeysLoading(false);
       }
     };
@@ -225,6 +247,8 @@ const App: React.FC = () => {
 
   // Open settings immediately if no keys and not loading
   useEffect(() => {
+      // Only show settings if user is logged in AND either Google AI or FAL key is missing
+      // This check now considers both user-specific and default keys
       if (!isSessionLoading && !isApiKeysLoading && user && (!apiKeys.googleApiKey || !apiKeys.falKey)) {
           setShowSettings(true);
       }

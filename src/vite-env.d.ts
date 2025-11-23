@@ -3,7 +3,8 @@
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string;
   readonly VITE_SUPABASE_ANON_KEY: string;
-  // Agrega aquí cualquier otra variable de entorno que uses con el prefijo VITE_
+  readonly VITE_GOOGLE_API_KEY: string; // Nueva variable de entorno
+  readonly VITE_FAL_KEY: string; // Nueva variable de entorno
 }
 
 interface ImportMeta {
