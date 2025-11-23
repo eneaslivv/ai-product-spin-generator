@@ -1,4 +1,3 @@
-
 export enum AppState {
   IDLE = 'IDLE',
   UPLOADING = 'UPLOADING',
@@ -19,6 +18,7 @@ export interface ProductData {
   enhancedBackImageUrl: string | null;
   videoUrl: string | null;
   timestamp: number;
+  user_id: string; // Added user_id
 }
 
 export interface ApiKeys {

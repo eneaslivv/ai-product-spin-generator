@@ -5,23 +5,21 @@ import SettingsModal from './components/SettingsModal';
 import UploadView from './components/UploadView';
 import ProcessingView from './components/ProcessingView';
 import ResultView from './components/ResultView';
+import Login from './pages/Login';
 import { enhanceImage } from './services/googleAiService';
 import { generate360Spin } from './services/falService';
+import { useSession } from './components/SessionContextProvider';
+import { supabase } from './integrations/supabase/client';
 
-// Default keys from localStorage or empty
-const getStoredKeys = (): ApiKeys => {
-  const stored = localStorage.getItem('spin_gen_keys');
-  return stored ? JSON.parse(stored) : {
+const App: React.FC = () => {
+  const { session, user, isLoading: isSessionLoading } = useSession();
+  const [appState, setAppState] = useState<AppState>(AppState.IDLE);
+  const [apiKeys, setApiKeys] = useState<ApiKeys>({
     googleApiKey: '',
     falKey: '',
     supabaseUrl: '',
     supabaseAnonKey: ''
-  };
-};
-
-const App: React.FC = () => {
-  const [appState, setAppState] = useState<AppState>(AppState.IDLE);
-  const [apiKeys, setApiKeys] = useState<ApiKeys>(getStoredKeys());
+  });
   const [showSettings, setShowSettings] = useState(false);
   const [productData, setProductData] = useState<ProductData>({
     id: '',
@@ -33,8 +31,10 @@ const App: React.FC = () => {
     enhancedBackImageUrl: null,
     videoUrl: null,
     timestamp: 0,
+    user_id: '', // Added user_id
   });
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isApiKeysLoading, setIsApiKeysLoading] = useState(true);
 
   // Define steps for the processing view
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([
@@ -49,12 +49,71 @@ const App: React.FC = () => {
     ));
   };
 
-  const saveKeys = (keys: ApiKeys) => {
-    setApiKeys(keys);
-    localStorage.setItem('spin_gen_keys', JSON.stringify(keys));
+  // Fetch API keys from Supabase when user session changes
+  useEffect(() => {
+    const fetchApiKeys = async () => {
+      if (user) {
+        setIsApiKeysLoading(true);
+        const { data, error } = await supabase
+          .from('user_api_keys')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+          console.error('Error fetching API keys:', error);
+          setErrorMsg('Failed to load API keys.');
+        } else if (data) {
+          setApiKeys({
+            googleApiKey: data.google_api_key || '',
+            falKey: data.fal_key || '',
+            supabaseUrl: data.supabase_url || '',
+            supabaseAnonKey: data.supabase_anon_key || ''
+          });
+        }
+        setIsApiKeysLoading(false);
+      } else {
+        setApiKeys({ googleApiKey: '', falKey: '', supabaseUrl: '', supabaseAnonKey: '' });
+        setIsApiKeysLoading(false);
+      }
+    };
+
+    if (!isSessionLoading) {
+      fetchApiKeys();
+    }
+  }, [user, isSessionLoading]);
+
+  const saveKeys = async (keys: ApiKeys) => {
+    if (!user) {
+      setErrorMsg('You must be logged in to save API keys.');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('user_api_keys')
+      .upsert({
+        user_id: user.id,
+        google_api_key: keys.googleApiKey,
+        fal_key: keys.falKey,
+        supabase_url: keys.supabaseUrl,
+        supabase_anon_key: keys.supabaseAnonKey,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+
+    if (error) {
+      console.error('Error saving API keys:', error);
+      setErrorMsg('Failed to save API keys.');
+    } else {
+      setApiKeys(keys);
+    }
   };
 
   const handleStart = async (frontFile: File, backFile: File | null, name: string) => {
+    if (!user) {
+      setErrorMsg('You must be logged in to generate product spins.');
+      return;
+    }
+
     setAppState(AppState.UPLOADING);
     setErrorMsg(null);
     setProductData({
@@ -67,6 +126,7 @@ const App: React.FC = () => {
       enhancedBackImageUrl: null,
       videoUrl: null,
       timestamp: Date.now(),
+      user_id: user.id, // Associate with current user
     });
 
     // Reset steps
@@ -110,11 +170,25 @@ const App: React.FC = () => {
       setProductData(prev => ({ ...prev, videoUrl }));
       updateStepStatus('spin', 'success');
 
-      // 3. "Save" (Mocking Supabase storage for client-side demo)
+      // 3. Save product data to Supabase
       setAppState(AppState.SAVING);
       updateStepStatus('save', 'loading');
       
-      await new Promise(r => setTimeout(r, 800)); // Short delay for UX
+      const { error: saveError } = await supabase
+        .from('products')
+        .insert({
+          id: productData.id,
+          name: productData.name,
+          originalimageurl: productData.originalImageUrl,
+          enhancedimageurl: enhancedFront,
+          videourl: videoUrl,
+          timestamp: productData.timestamp,
+          user_id: user.id,
+        });
+
+      if (saveError) {
+        throw new Error(`Failed to save product data: ${saveError.message}`);
+      }
       
       updateStepStatus('save', 'success');
       setAppState(AppState.COMPLETE);
@@ -144,15 +218,29 @@ const App: React.FC = () => {
         enhancedBackImageUrl: null,
         videoUrl: null,
         timestamp: 0,
+        user_id: user?.id || '',
     });
+    setErrorMsg(null);
   };
 
-  // Open settings immediately if no keys
+  // Open settings immediately if no keys and not loading
   useEffect(() => {
-      if(!apiKeys.googleApiKey || !apiKeys.falKey) {
+      if (!isSessionLoading && !isApiKeysLoading && user && (!apiKeys.googleApiKey || !apiKeys.falKey)) {
           setShowSettings(true);
       }
-  }, []);
+  }, [apiKeys, user, isSessionLoading, isApiKeysLoading]);
+
+  if (isSessionLoading || isApiKeysLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="spin-loader !w-10 !h-10 !border-l-black"></div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Login />;
+  }
 
   return (
     <div className="min-h-screen pt-28 pb-20 bg-white">
