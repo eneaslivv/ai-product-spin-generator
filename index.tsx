@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { SessionContextProvider } from './components/SessionContextProvider';
+import { SessionContextProvider } from './src/components/SessionContextProvider'; // Ruta corregida
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

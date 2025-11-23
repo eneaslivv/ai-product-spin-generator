@@ -5,11 +5,11 @@ import SettingsModal from './components/SettingsModal';
 import UploadView from './components/UploadView';
 import ProcessingView from './components/ProcessingView';
 import ResultView from './components/ResultView';
-import Login from './pages/Login';
+import Login from './src/pages/Login'; // Ruta corregida
 import { enhanceImage } from './services/googleAiService';
 import { generate360Spin } from './services/falService';
-import { useSession } from './components/SessionContextProvider';
-import { supabase } from './integrations/supabase/client';
+import { useSession } from './src/components/SessionContextProvider'; // Ruta corregida
+import { supabase } from './src/integrations/supabase/client'; // Ruta corregida
 
 const App: React.FC = () => {
   const { session, user, isLoading: isSessionLoading } = useSession();
