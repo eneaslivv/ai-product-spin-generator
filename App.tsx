@@ -5,11 +5,10 @@ import SettingsModal from './components/SettingsModal';
 import UploadView from './components/UploadView';
 import ProcessingView from './components/ProcessingView';
 import ResultView from './components/ResultView';
-import Login from './src/pages/Login'; // Ruta corregida
-import { enhanceImage } from './services/googleAiService';
-import { generate360Spin } from './services/falService';
-import { useSession } from './src/components/SessionContextProvider'; // Ruta corregida
-import { supabase } from './src/integrations/supabase/client'; // Ruta corregida
+import Login from './src/pages/Login';
+import { useSession } from './src/components/SessionContextProvider';
+import { supabase } from './src/integrations/supabase/client';
+import { uploadImageToSupabase } from './src/integrations/supabase/storage'; // Nueva importación
 
 const App: React.FC = () => {
   const { session, user, isLoading: isSessionLoading } = useSession();
@@ -26,21 +25,21 @@ const App: React.FC = () => {
     name: '',
     originalImageBlob: null,
     originalBackImageBlob: null,
-    originalImageUrl: null,
+    originalImageUrl: null, // Se establecerá después de la subida
     enhancedImageUrl: null,
     enhancedBackImageUrl: null,
     videoUrl: null,
     timestamp: 0,
-    user_id: '', // Added user_id
+    user_id: '',
   });
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isApiKeysLoading, setIsApiKeysLoading] = useState(true);
 
-  // Define steps for the processing view
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([
+    { id: 'upload', label: 'Uploading Images', status: 'pending' }, // Nuevo paso
     { id: 'enhance', label: 'AI Image Enhancement', status: 'pending' },
     { id: 'spin', label: '360° Geometry Generation', status: 'pending' },
-    { id: 'save', label: 'Formatting Output', status: 'pending' },
+    { id: 'save', label: 'Saving Product Data', status: 'pending' }, // Etiqueta cambiada
   ]);
 
   const updateStepStatus = (id: string, status: ProcessingStep['status']) => {
@@ -49,12 +48,10 @@ const App: React.FC = () => {
     ));
   };
 
-  // Fetch API keys from Supabase when user session changes
   useEffect(() => {
     const fetchApiKeys = async () => {
       setIsApiKeysLoading(true);
 
-      // Siempre obtener las claves predeterminadas de las variables de entorno primero
       const defaultGoogleApiKey = import.meta.env.VITE_GOOGLE_API_KEY || '';
       const defaultFalKey = import.meta.env.VITE_FAL_KEY || '';
       const defaultSupabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -72,20 +69,16 @@ const App: React.FC = () => {
           .eq('user_id', user.id)
           .single();
 
-        if (error && error.code !== 'PGRST116') { // PGRST116 significa que no se encontraron filas
+        if (error && error.code !== 'PGRST116') {
           console.error('Error fetching API keys:', error);
           setErrorMsg('Failed to load API keys.');
-          // Si hay un error, seguimos usando los valores predeterminados (que ya están configurados)
         } else if (data) {
-          // Si existen datos específicos del usuario, úsalos, pero vuelve a los valores predeterminados si la clave guardada por el usuario está vacía
           currentGoogleApiKey = data.google_api_key || defaultGoogleApiKey;
           currentFalKey = data.fal_key || defaultFalKey;
           currentSupabaseUrl = data.supabase_url || defaultSupabaseUrl;
           currentSupabaseAnonKey = data.supabase_anon_key || defaultSupabaseAnonKey;
         }
-        // Si los datos son nulos (PGRST116), nos quedamos con los valores predeterminados (que ya están configurados)
       }
-      // Si no hay usuario, nos quedamos con los valores predeterminados (que ya están configurados)
 
       setApiKeys({
         googleApiKey: currentGoogleApiKey,
@@ -139,84 +132,77 @@ const App: React.FC = () => {
       name,
       originalImageBlob: frontFile,
       originalBackImageBlob: backFile,
-      originalImageUrl: URL.createObjectURL(frontFile),
+      originalImageUrl: null, // Se establecerá después de la subida
       enhancedImageUrl: null,
       enhancedBackImageUrl: null,
       videoUrl: null,
       timestamp: Date.now(),
-      user_id: user.id, // Associate with current user
+      user_id: user.id,
     });
 
     // Reset steps
     setProcessingSteps([
+        { id: 'upload', label: 'Uploading Images', status: 'loading' }, // Iniciar paso de subida
         { id: 'enhance', label: 'AI Image Enhancement', status: 'pending' },
         { id: 'spin', label: '360° Geometry Generation', status: 'pending' },
-        { id: 'save', label: 'Formatting Output', status: 'pending' },
+        { id: 'save', label: 'Saving Product Data', status: 'pending' },
     ]);
 
     try {
-      // 1. Enhance Images (Parallel if back exists)
-      setAppState(AppState.ENHANCING);
-      updateStepStatus('enhance', 'loading');
-      
-      const enhancePromises = [
-        enhanceImage(apiKeys.googleApiKey, frontFile, name)
-      ];
-
+      // 1. Subir imágenes originales a Supabase Storage
+      const frontImageUrl = await uploadImageToSupabase(frontFile, user.id, 'original');
+      let backImageUrl: string | null = null;
       if (backFile) {
-        enhancePromises.push(enhanceImage(apiKeys.googleApiKey, backFile, `${name} (Back View)`));
+        backImageUrl = await uploadImageToSupabase(backFile, user.id, 'original-back');
       }
 
-      const results = await Promise.all(enhancePromises);
-      const enhancedFront = results[0];
-      const enhancedBack = results.length > 1 ? results[1] : null;
-      
-      // Update data immediately so ProcessingView shows the enhanced image
       setProductData(prev => ({ 
           ...prev, 
-          enhancedImageUrl: enhancedFront,
-          enhancedBackImageUrl: enhancedBack
+          originalImageUrl: frontImageUrl,
+          originalBackImageUrl: backImageUrl
       }));
-      updateStepStatus('enhance', 'success');
+      updateStepStatus('upload', 'success');
 
-      // 2. Generate Spin
-      setAppState(AppState.GENERATING_SPIN);
-      updateStepStatus('spin', 'loading');
+      // 2. Invocar la Supabase Edge Function para mejora y generación de giro
+      setAppState(AppState.ENHANCING); // La función Edge manejará primero la mejora
+      updateStepStatus('enhance', 'loading');
 
-      // Pasar el nombre del producto a generate360Spin
-      const videoUrl = await generate360Spin(apiKeys.falKey, enhancedFront, name); 
-      
-      setProductData(prev => ({ ...prev, videoUrl }));
-      updateStepStatus('spin', 'success');
-
-      // 3. Save product data to Supabase
-      setAppState(AppState.SAVING);
-      updateStepStatus('save', 'loading');
-      
-      const { error: saveError } = await supabase
-        .from('products')
-        .insert({
-          id: productData.id,
-          name: productData.name,
-          originalimageurl: productData.originalImageUrl,
-          enhancedimageurl: enhancedFront,
-          videourl: videoUrl,
-          timestamp: productData.timestamp,
+      const { data, error: edgeFunctionError } = await supabase.functions.invoke('generate-spin', {
+        body: JSON.stringify({
+          product_id: productData.id, // Pasar el ID de producto generado
+          original_image_url: frontImageUrl,
+          original_back_image_url: backImageUrl, // Pasar la URL de la imagen trasera si existe
+          product_name: name,
           user_id: user.id,
-        });
+          google_api_key: apiKeys.googleApiKey, // Pasar claves a la Edge Function
+          fal_key: apiKeys.falKey,
+        }),
+      });
 
-      if (saveError) {
-        throw new Error(`Failed to save product data: ${saveError.message}`);
+      if (edgeFunctionError) {
+        throw new Error(`Edge Function error: ${edgeFunctionError.message}`);
       }
-      
-      updateStepStatus('save', 'success');
+      if (!data || data.error) {
+        throw new Error(`Edge Function returned an error: ${data?.error || 'Unknown error'}`);
+      }
+
+      // Asumiendo que la Edge Function devuelve los datos de producto actualizados
+      setProductData(prev => ({ 
+          ...prev, 
+          enhancedImageUrl: data.enhancedimageurl,
+          enhancedBackImageUrl: data.enhancedbackimageurl, // Si la imagen trasera también se mejora
+          videoUrl: data.videourl,
+      }));
+      updateStepStatus('enhance', 'success'); // Mejora realizada por la Edge Function
+      updateStepStatus('spin', 'success'); // Generación de giro realizada por la Edge Function
+      updateStepStatus('save', 'success'); // Guardado realizado por la Edge Function
+
       setAppState(AppState.COMPLETE);
 
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || "An unexpected error occurred");
       setAppState(AppState.ERROR);
-      // Mark current loading step as error
       setProcessingSteps(prev => {
           const loadingStep = prev.find(p => p.status === 'loading');
           if(loadingStep) return prev.map(p => p.id === loadingStep.id ? {...p, status: 'error'} : p);
@@ -242,10 +228,7 @@ const App: React.FC = () => {
     setErrorMsg(null);
   };
 
-  // Open settings immediately if no keys and not loading
   useEffect(() => {
-      // Solo mostrar la configuración si el usuario está logueado Y si las claves de Google AI o FAL.ai están vacías
-      // Esta verificación ahora considera tanto las claves específicas del usuario como las predeterminadas
       if (!isSessionLoading && !isApiKeysLoading && user && (!apiKeys.googleApiKey || !apiKeys.falKey)) {
           setShowSettings(true);
       }
@@ -282,7 +265,6 @@ const App: React.FC = () => {
           appState === AppState.SAVING) && (
           <ProcessingView 
             steps={processingSteps} 
-            // Prefer showing the enhanced front image
             previewImage={productData.enhancedImageUrl || productData.originalImageUrl}
             isEnhanced={!!productData.enhancedImageUrl}
           />

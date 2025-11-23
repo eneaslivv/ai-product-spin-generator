@@ -15,10 +15,10 @@ export interface ProductData {
   originalBackImageBlob: Blob | null;
   originalImageUrl: string | null;
   enhancedImageUrl: string | null;
-  enhancedBackImageUrl: string | null;
+  enhancedBackImageUrl: string | null; // Añadido este campo
   videoUrl: string | null;
   timestamp: number;
-  user_id: string; // Added user_id
+  user_id: string;
 }
 
 export interface ApiKeys {
