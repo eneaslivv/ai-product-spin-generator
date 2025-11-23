@@ -1,4 +1,4 @@
-import fal from "@fal-ai/serverless-client"; // Corregido a importación por defecto
+import fal from "@fal-ai/serverless-client"; // Importación por defecto para el frontend
 import { FalResponse } from "../types"; // Importar la interfaz FalResponse
 
 export const generate360Spin = async (
@@ -7,6 +7,12 @@ export const generate360Spin = async (
   productName: string
 ): Promise<string> => {
   if (!apiKey) throw new Error("FAL.ai Key is required");
+
+  // Verificar si 'fal' se ha importado correctamente y tiene el método 'config'
+  if (!fal || typeof fal.config !== 'function') {
+    console.error('Error: El cliente de FAL.ai no se ha importado o inicializado correctamente. Objeto fal:', fal);
+    throw new Error("FAL.ai client is not properly initialized. Please check your import and environment.");
+  }
 
   fal.config({
     credentials: apiKey,
