@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { GoogleGenAI } from "https://esm.sh/@google/genai";
-import { fal } from "https://esm.sh/@fal-ai/serverless-client"; // Importar fal-client para Deno
+import fal from "https://esm.sh/@fal-ai/serverless-client"; // Cambiado de { fal } a fal
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
