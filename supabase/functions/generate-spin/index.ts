@@ -1,6 +1,6 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts"; // Versión actualizada
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts"; // Versión actualizada
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.84.0"; // Versión específica
 import { GoogleGenAI } from "https://esm.sh/@google/genai";
 import { fal } from "https://esm.sh/@fal-ai/serverless-client";
 
@@ -10,6 +10,8 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log("Edge Function 'generate-spin' received a request."); // Log para depuración
+
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
