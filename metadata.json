@@ -1,0 +1,5 @@
+{
+  "name": "AI Product Spin Generator",
+  "description": "Generate 360° rotating product videos from a single photo using Google AI and FAL.ai.",
+  "requestFramePermissions": []
+}
