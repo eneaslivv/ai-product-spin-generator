@@ -1,4 +1,4 @@
-import fal from "@fal-ai/serverless-client"; // Corregido a importación por defecto
+import fal from "@fal-ai/serverless-client"; // Importación por defecto para Node.js
 import { FalResponse } from "../types"; // Importar la interfaz FalResponse
 
 export const generate360Spin = async (
@@ -28,7 +28,7 @@ export const generate360Spin = async (
           console.log(`Progreso FAL.ai: ${update.logs.map(log => log.message).join(' ')}`);
         }
       },
-    }) as FalResponse; // Castear el resultado a FalResponse
+    }) as FalResponse;
 
     if (!result || !result.video || !result.video.url) {
       throw new Error("FAL.ai did not return a video URL.");

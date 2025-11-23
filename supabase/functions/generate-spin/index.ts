@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { GoogleGenAI } from "https://esm.sh/@google/genai";
-import fal from "https://esm.sh/@fal-ai/serverless-client"; // Cambiado de { fal } a fal
+import { fal } from "https://esm.sh/@fal-ai/serverless-client"; // Corregido a importación nombrada para Deno
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -61,7 +61,7 @@ serve(async (req) => {
     const falResult = await fal.subscribe("fal-ai/kling-video/v2.5-turbo/pro/image-to-video", {
       input: {
         image_url: enhancedImageUrl,
-        prompt: `A professional 360-degree orbiting camera shot of ${product_name}, smooth turntable rotation, studio lighting, solid background, high resolution, 4k, cinematic focus, keeping the object shape consistent without deformation.`,
+        prompt: `A professional 360-degree orbiting orbiting camera shot of ${product_name}, smooth turntable rotation, studio lighting, solid background, high resolution, 4k, cinematic focus, keeping the object shape consistent without deformation.`,
         duration: "5",
         aspect_ratio: "1:1"
       },
